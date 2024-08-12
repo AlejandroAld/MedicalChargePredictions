@@ -1,0 +1,106 @@
+---
+title: "Medical Charge Predictions"
+output: html_notebook
+---
+```{r}
+library(ggplot2)
+library(randomForest)
+library(caret)
+```
+
+```{r}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+df = read.csv('dataset/insurance.csv', header = TRUE)
+num_cols <- unlist(lapply(df, is.numeric))
+plot(df[,num_cols])
+```
+
+OBSERVACIONES: 1. Entre mayor edad, mas cargos monetarios, posible segmentacion entre tres categorias de cargos por edad. 2. Entre mas hijos, menos cargos.
+
+```{r}
+round(cor(df[,num_cols]),2)
+```
+
+```{r}
+smoker = as.factor(df$smoker)
+sex = as.factor(df$sex)
+region = as.factor(df$region)
+
+boxplot(df$charges ~ smoker, main = 'smoker')
+boxplot(df$charges ~ sex, main = 'sex')
+boxplot(df$charges ~ region, main = 'region')
+```
+
+```{r}
+model1 = lm(charges ~. , data = df)
+```
+
+```{r}
+summary(model1)
+```
+
+```{r}
+df = read.csv('dataset/insurance.csv', header = TRUE)
+
+df$smoker = as.factor(df$smoker)
+df$sex = as.factor(df$sex)
+df$region = as.factor(df$region)
+```
+
+```{r}
+# Control de validación cruzada
+train_control <- trainControl(method = "cv", number = 10)
+
+# Entrenamiento del modelo de Random Forest
+set.seed(123)  
+model_rf <- train(charges ~ ., data = df, method = "rf", trControl = train_control)
+
+```
+
+```{r}
+print(model_rf)
+```
+
+```{r}
+# Importancia de las variables
+varImp(model_rf)
+```
+
+```{r}
+# Evaluación del modelo
+rmse <- sqrt(mean((df$charges - predictions)^2))
+print(paste("RMSE: ", rmse))
+```
+
+```{r}
+# Generar las predicciones del modelo de Random Forest
+predictions_rf <- predict(model_rf, df)
+
+model_lm <- lm(charges ~ ., data = df)
+predictions_lm <- predict(model_lm, df)
+
+plot_data <- data.frame(
+  Observed = df$charges,
+  Predicted_RF = predictions_rf,
+  Predicted_LM = predictions_lm
+)
+
+# Graficar las predicciones de Random Forest y la tendencia lineal
+ggplot(plot_data, aes(x = Observed)) +
+  geom_point(aes(y = Predicted_RF), color = "blue", alpha = 0.5) +
+  geom_line(aes(y = Predicted_LM), color = "red", linewidth = 1) +
+  geom_smooth(aes(y = Predicted_RF), method = "lm", color = "black", linetype = "dashed") +
+  labs(
+    title = "Predicciones del Modelo de Random Forest y Tendencia Lineal",
+    x = "Cargos Observados",
+    y = "Cargos Predichos"
+  ) +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+Puntos azules: Muestran las predicciones del modelo de Random Forest comparadas con los cargos observados. Línea roja: Representa la tendencia lineal ajustada a los datos. Línea negra punteada: Representa la tendencia lineal ajustada directamente sobre el gráfico.
